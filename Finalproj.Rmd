@@ -1,0 +1,194 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+
+library(ggplot2)
+setwd("C:/Users/tae0933/Desktop")
+Heart <- read.csv('Heart.csv')
+head(Heart)
+
+```
+
+
+```{r}
+sum(is.na(Heart))
+```
+- comment on distribution, outliers
+
+
+
+
+```{r}
+
+
+
+Heart <- within(Heart,
+     {SEXf <- factor(sex, levels=c(0,1), labels=c('female','male'))
+     CPf <- factor(cp, levels=c(0,1,2,3), labels=c('asymptomatic','atypical angina','pain - no angina','typical angine'))
+     FBSf <- factor(fbs, levels=c(0,1), labels=c('sugar <120mg','sugar>120mg'))
+     RESTECGf <- factor(restecg, levels=c(0,1,2), labels=c('left ventricular hypertrophy','normal','abnormal'))
+     EXANGf <- factor(exang, levels=c(0,1), labels=c('no angina during exercise','yes angina during exercise'))
+     SLOPEf <- factor(slope, levels=c(0,1,2), labels=c('descending','flat','ascending'))
+     CAf <- factor(ca)
+     thalf <- factor(thal, levels=c(0,1,2,3), labels=c('null','fixed defect','normal','reversible defect'))
+     Disease<-factor(target, levels = c(0,1),labels = c("yes","no"))
+  })
+
+
+summary(Heart)
+```
+
+age distributed normally ( mean 54.37, range 29-77)
+sex: mostly males (207 compared to 96 females)
+cp: almost half are asymptomatic
+trestbps: normally distributed (mean 131.6, range 94-200)
+chol:slight negative skew (mean 246.3, range 126-564)
+fbs: mostly normal sugar level <120 mg (258, compared with 45 >120mg)
+RESTECGF: only 4 abnormal subject in the study
+thalach: positive skew, mean lower than median , range : 71-202
+exang: mostly no angina during exercise 204, compared with 99 yes angina during exercise
+oldpeak: negative skew, mean 1.04, range 0- 6.2
+slope: only 21 subjects with descending slope
+ca: mostly 0 narrow blood vessels (175), 5 null values
+thalf: only 18 subject with a fixed defect
+
+
+
+
+Logistic regression using only one categorical variable
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+chisq.test(Heart$target,Heart$sex)
+sqrt(chisq.test(Heart$target,Heart$sex)$statistic /303)
+
+chisq.test(Heart$target,Heart$cp)
+sqrt(chisq.test(Heart$target,Heart$cp)$statistic /303)
+
+chisq.test(Heart$target,Heart$fbs)
+sqrt(chisq.test(Heart$target,Heart$fbs)$statistic /303)
+
+chisq.test(Heart$target,Heart$restecg)
+sqrt(chisq.test(Heart$target,Heart$restecg)$statistic /303)
+
+chisq.test(Heart$target,Heart$exang)
+sqrt(chisq.test(Heart$target,Heart$exang)$statistic /303)
+
+chisq.test(Heart$target,Heart$slope)
+sqrt(chisq.test(Heart$target,Heart$slope)$statistic /303)
+
+chisq.test(Heart$target,Heart$ca)
+sqrt(chisq.test(Heart$target,Heart$ca)$statistic /303)
+
+chisq.test(Heart$target,Heart$thal)
+sqrt(chisq.test(Heart$target,Heart$thal)$statistic /303)
+
+summary(glm(target ~ thal, data = Heart, family = binomial))
+
+
+```
+Best single statistically significant association between target and a  categorical variables is for thal. with a p-value of 2.2e-16 which is statistically significant at the 99.9 confidence interval, and the correlation has a strength of 0.54
+```{r}
+library(tidyverse)
+library(ggplot2)
+ggplot(Heart, aes(thalf, fill= Disease)) +
+  geom_bar() +
+  labs( x="Results of the blood flow", y="Number of patients")
+
+
+```
+
+Logistic regression using multiple categorical variables
+
+First using all the categorical variables available and then using only those that are statistically significant and finally a model that takes into account the interaction between thal and ca.
+
+
+```{r}
+summary(glm(target ~ thal+ca+slope+exang+cp+restecg+fbs+sex, data = Heart, family = binomial))
+
+summary(glm(target ~ thal+ca+slope+exang+cp+sex, data = Heart, family = binomial))
+
+summary(glm(target ~ thal+ca+slope+exang+cp+sex+thal*ca, data = Heart, family = binomial))
+
+
+
+
+```
+
+
+Logistic Regression using one continous variables- we see that the statistically significant variables for predicting heart disease are: age,thalach, and oldpeak 
+
+We then combine the variables into a multiple logistic regression test taking into account the interaction between age and thalach
+
+
+```{r}
+
+
+summary(aov(Heart$target ~ Heart$ï..age))
+summary(aov(Heart$target ~ Heart$trestbps))
+summary(aov(Heart$target ~ Heart$chol))
+summary(aov(Heart$target ~ Heart$thalach))
+summary(aov(Heart$target ~ Heart$oldpeak))
+
+
+
+
+summary(glm(target ~ oldpeak+thalach+ï..age+thalach*ï..age, data = Heart, family = binomial))
+```
+```{r}
+
+
+ggplot(Heart, aes(x= ï..age,col= Disease)) +
+  geom_point(aes(y=oldpeak)) +
+  geom_point(aes(y=thalach/-50))+
+  scale_y_continuous(sec.axis = sec_axis(~.*-50, name = "thalach"))+
+  geom_abline()
+  labs( x="age", y="oldpeak")
+  
+  
+  
+```
+The above graph shows both oldpeak(y-axis on the left) and oldpeak (y axis on the right) in terms of age. The data points for oldpeak are on the top half of the graph, while the datapoints for thalach are on the bottom portion of the graph,
+
+
+Finally we take a look at a combined model featuring all the categorical and continuous variables available. We then try the same model taking into account interactions between thal and ca as well as between exang and cp. We also take a model which only uses the statstically signinficant variables we found earlier, settling on a model that takes into account interaction between thal and ca.
+
+
+
+```{r}
+summary(glm(target ~ thal+ca+slope+exang+cp+restecg+fbs+sex+oldpeak+thalach+ï..age+trestbps+chol, data = Heart, family = binomial))
+
+summary(glm(target ~ thal+ca+slope+exang+cp+restecg+fbs+sex+oldpeak+thalach+ï..age+trestbps+chol+thal*ca+exang*cp, data = Heart, family = binomial))
+
+
+summary(glm(target ~ thal+ca+slope+exang+cp+sex+oldpeak+thalach+trestbps, data = Heart, family = binomial))
+
+summary(glm(target ~ thal+ca+slope+exang+cp+sex+oldpeak+thalach+trestbps+thal*ca+exang*cp, data = Heart, family = binomial))
+
+summary(glm(target ~ thal+ca+slope+exang+cp+sex+oldpeak+thalach+trestbps+thal*ca, data = Heart, family = binomial))
+```
+
+
+```{r}
+
+
+summary(glm(target ~ oldpeak+thalach+ca+cp+thal+exang+sex, data = Heart, family = binomial))
+
+
+summary(glm(target ~ oldpeak+thalach+ca+cp+thal+exang+slope, data = Heart, family = binomial))
+summary(glm(target ~ oldpeak+thalach+ca+cp+thal+exang, data = Heart, family = binomial))
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
